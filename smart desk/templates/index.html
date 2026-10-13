@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>Smart Parking - Real-time Desk Occupancy & Booking</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+  <!-- Top Dark Navy Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <a href="/" class="brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Smart Parking</h1>
+          <p>IoT IR Sensor System</p>
+        </div>
+      </a>
+
+      <div class="header-actions">
+        <!-- Live Connection Pill -->
+        <div class="connection-pill" id="connectionPill" title="Arduino USB Serial Status">
+          <span class="status-dot" id="connectionDot"></span>
+          <span id="connectionText">Checking...</span>
+        </div>
+
+        {% if user %}
+        <div class="user-badge" id="userDisplay">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+          </svg>
+          <span>{{ user.username }}</span>
+        </div>
+        {% else %}
+        <a href="/login" class="btn-header">Log In</a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <!-- Live Disconnection Warning Banner -->
+  <aside class="warning-banner" id="warningBanner" role="alert">
+    <svg viewBox="0 0 24 24">
+      <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+    </svg>
+    <span id="warningMessage">Arduino is disconnected. Monitoring and booking are paused.</span>
+  </aside>
+
+  <!-- Mobile Tab Navigation -->
+  <nav class="nav-tabs" aria-label="Main Navigation">
+    <div class="nav-container">
+      <button class="nav-tab active" data-tab="dashboard">
+        <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+        Dashboard
+      </button>
+      <button class="nav-tab" data-tab="bookings">
+        <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
+        My Bookings
+      </button>
+      <button class="nav-tab" data-tab="settings">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+        Connection Settings
+      </button>
+      <button class="nav-tab" data-tab="account">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+        Account
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main Content Container -->
+  <main class="main-content">
+    
+    <!-- Tab 1: Dashboard -->
+    <section class="tab-pane active" id="tab-dashboard">
+      <!-- Live Overview Statistics -->
+      <div class="stats-grid">
+        <div class="stat-card available">
+          <div class="stat-header">
+            <span class="stat-label">Available</span>
+            <div class="stat-icon">
+              <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+            </div>
+          </div>
+          <div class="stat-value" id="statAvailable">--</div>
+        </div>
+
+        <div class="stat-card occupied">
+          <div class="stat-header">
+            <span class="stat-label">Occupied</span>
+            <div class="stat-icon">
+              <svg viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>
+            </div>
+          </div>
+          <div class="stat-value" id="statOccupied">--</div>
+        </div>
+
+        <div class="stat-card booked">
+          <div class="stat-header">
+            <span class="stat-label">Booked</span>
+            <div class="stat-icon">
+              <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
+            </div>
+          </div>
+          <div class="stat-value" id="statBooked">--</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-header">
+            <span class="stat-label">Total Desks</span>
+            <div class="stat-icon" style="background:#e2e8f0; fill:#475569;">
+              <svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
+            </div>
+          </div>
+          <div class="stat-value" id="statTotal">4</div>
+        </div>
+
+        <div class="stat-card occupancy">
+          <div class="stat-header">
+            <span class="stat-label">Occupancy Rate</span>
+            <span style="font-size: 0.75rem; color: #64748b; font-weight: 600;">Valid Sensor Data</span>
+          </div>
+          <div class="stat-value" id="statOccupancyPct">0%</div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progressBarFill"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 Parking Cards -->
+      <h2 class="section-title">Parking Desks</h2>
+      <div class="parking-grid" id="parkingGrid">
+        <!-- Rendered dynamically by script.js -->
+        <div style="text-align: center; padding: 2rem; color: #64748b; grid-column: 1 / -1;">
+          Loading parking spaces...
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 2: My Bookings -->
+    <section class="tab-pane" id="tab-bookings">
+      <div class="card-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">My Bookings History</h2>
+        </div>
+
+        {% if not user %}
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+          <p>Please <a href="/login" style="color:var(--accent-blue);font-weight:700;">log in</a> to view and manage your desk reservations.</p>
+        </div>
+        {% else %}
+        <div class="booking-list" id="bookingList">
+          <!-- Populated by JavaScript -->
+        </div>
+        <div class="empty-state" id="emptyBookings" style="display:none;">
+          <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
+          <p>You have no active or past desk reservations.</p>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <!-- Tab 3: Connection Settings -->
+    <section class="tab-pane" id="tab-settings">
+      <div class="card-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Arduino Serial Connection</h2>
+        </div>
+
+        <div class="settings-info-box">
+          <div class="settings-info-row">
+            <span>Configured Serial Port:</span>
+            <strong id="settingsPort">COM8</strong>
+          </div>
+          <div class="settings-info-row">
+            <span>Baud Rate:</span>
+            <strong>9600 bps</strong>
+          </div>
+          <div class="settings-info-row">
+            <span>Connection State:</span>
+            <strong id="settingsStatus">DISCONNECTED</strong>
+          </div>
+          <div class="settings-info-row">
+            <span>Last Received Packet:</span>
+            <strong id="settingsLastSeen">Never</strong>
+          </div>
+        </div>
+
+        {% if user %}
+        <form class="settings-form" id="settingsForm">
+          <div class="form-group">
+            <label for="portInput">Windows COM Port</label>
+            <input type="text" id="portInput" class="form-control" placeholder="COM8" value="COM8" required>
+            <p class="form-helper">Enter the USB port assigned to Arduino UNO in Windows Device Manager (e.g. COM3, COM8).</p>
+          </div>
+          <button type="submit" class="btn-primary" id="btnSavePort">Save & Connect</button>
+        </form>
+        {% else %}
+        <p style="font-size: 0.9rem; color: #64748b;">
+          Please <a href="/login" style="color:var(--accent-blue);font-weight:700;">log in</a> to change hardware serial port settings.
+        </p>
+        {% endif %}
+      </div>
+    </section>
+
+    <!-- Tab 4: Account -->
+    <section class="tab-pane" id="tab-account">
+      <div class="card-panel">
+        <div class="panel-header">
+          <h2 class="panel-title">User Account</h2>
+        </div>
+
+        {% if user %}
+        <div style="margin-bottom: 1.5rem;">
+          <p style="font-size: 1rem; margin-bottom: 0.35rem;">Signed in as: <strong>{{ user.username }}</strong></p>
+          <p style="font-size: 0.85rem; color: #64748b;">Account ID: #{{ user.id }}</p>
+        </div>
+        <button id="btnLogout" class="btn-cancel-sm" style="padding:0.65rem 1.25rem;">Log Out</button>
+        {% else %}
+        <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+          <a href="/login" class="btn-primary" style="text-decoration:none;">Log In</a>
+          <a href="/register" class="btn-primary" style="text-decoration:none; background:#475569;">Create Account</a>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Notification Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <p>Smart Parking System &bull; Arduino UNO &bull; 4 IR Sensors &bull; COM8 @ 9600 Baud</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
